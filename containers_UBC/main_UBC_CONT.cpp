@@ -1,38 +1,37 @@
 #include "gurobi_c++.h"
-#include <iostream>
 #include <fstream>
-#include <vector>
-#include <assert.h>
 #include <chrono>
-#include <ctime>
 #include <boost/algorithm/string.hpp>
 
 #define UNDEFINED_STRING "-1"
+#define UNDEFINED_DOUBLE -1.0
 #define UNDEFINED_INT -1
 #define UNDEFINED_STATUS "UNDEFINED_STATUS"
 
-std::string depth_level;                          //File system depth.
-std::string file_system_start;                    //ID of the first file system.
-std::string file_system_end;                      //ID of the last file system.
-int container_size = 0;                           //Average size of a container.
-double M_presents;                                //The % we want to migrate to an empty destination.
-double epsilon_presents;                          //The tolerance we can afford in the migration.
-std::string input_file_name;                      //Name of the input file, contains all the information needed.
-std::string benchmarks_file_name;                 //File we save our benchmarks, every line will be a different migration plan summary.
-double model_time_limit;                          //Time limit for the solver.
-bool time_limit_option = false;                   //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
-double M_containers = 0;                          //The number of containers we desire to migrate.
-double epsilon_containers = 0;                    //The number of containers we can tolerate in the solution.
-double containers_to_replicate = -1;              //Number of containers needed to be replicated as a result from the migration plan found.
-int num_of_containers = 0;                        //Number of phsical containers in the system.
-double actual_M_presents = -1;                    //The % of physical containers we decided to migrate.
-double actual_M = -1;                             //Number of containers we decided to migrate.
-int num_of_files = 0;                             //Number of files in our input.
-std::string seed = UNDEFINED_STRING;              //Seed for the solver.
-std::string number_of_threads = UNDEFINED_STRING; //Number of threads we restrict our solver to run with.
-std::string solution_status = UNDEFINED_STATUS;   //Solver status at the end of the optimization.
-int grouping_factor = 0;                          //Number of adjacent containers aggregated together into one "transfer unit".
-int num_of_containers_after_group;                //Number of "transfer units" as a results from the grouping factor.
+std::string depth_level = UNDEFINED_STRING;          //File system depth.
+std::string file_system_start = UNDEFINED_STRING;    //ID of the first file system.
+std::string file_system_end = UNDEFINED_STRING;      //ID of the last file system.
+int container_size = UNDEFINED_INT;                  //Average size of a container.
+double M_presents = UNDEFINED_DOUBLE;                //The % we want to migrate to an empty destination.
+double epsilon_presents = UNDEFINED_DOUBLE;          //The tolerance we can afford in the migration.
+std::string input_file_name = UNDEFINED_STRING;      //Name of the input file, contains all the information needed.
+std::string benchmarks_file_name = UNDEFINED_STRING; //File we save our benchmarks, every line will be a different migration plan summary.
+double model_time_limit = UNDEFINED_DOUBLE;          //Time limit for the solver.
+bool time_limit_option = false;                      //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
+
+double M_containers = UNDEFINED_DOUBLE;            //The number of containers we desire to migrate.
+double epsilon_containers = UNDEFINED_DOUBLE;      //The number of containers we can tolerate in the solution.
+double containers_to_replicate = UNDEFINED_DOUBLE; //Number of containers needed to be replicated as a result from the migration plan found.
+
+int num_of_containers = UNDEFINED_INT;             //Number of phsical containers in the inpu.
+double actual_M_presents = UNDEFINED_DOUBLE;       //The % of physical containers we decided to migrate.
+double actual_M = UNDEFINED_DOUBLE;                //Number of containers we decided to migrate.
+int num_of_files = UNDEFINED_INT;                  //Number of files in our input.
+std::string seed = UNDEFINED_STRING;               //Seed for the solver.
+std::string number_of_threads = UNDEFINED_STRING;  //Number of threads we restrict our solver to run with.
+std::string solution_status = UNDEFINED_STATUS;    //Solver status at the end of the optimization.
+int grouping_factor = UNDEFINED_INT;               //Number of adjacent containers aggregated together into one "transfer unit".
+int num_of_containers_after_group = UNDEFINED_INT; //Number of "transfer units" as a results from the grouping factor.
 
 /**
  * @brief counts the number of metadata lines in the input file.
@@ -74,6 +73,7 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
     std::string content;
     std::string number_as_string;
     std::string type_of_info;
+    bool set_num_files = false, set_num_containers = false;
 
     for (int i = 0; i < num_of_metadata_lines; i++)
     {
@@ -82,11 +82,18 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
         if (type_of_info == type_of_info_file)
         {
             num_of_files = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
+            set_num_files = true;
         }
         if (type_of_info == type_of_info_block)
         {
             num_of_containers = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
+            set_num_containers = true;
         }
+    }
+    if (!set_num_containers || !set_num_files)
+    {
+        std::cout << "cannot retrieve number of files or number of containers from the input" << std::endl;
+        exit(1);
     }
 }
 

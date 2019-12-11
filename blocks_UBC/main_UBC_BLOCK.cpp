@@ -1,37 +1,37 @@
 #include "gurobi_c++.h"
-#include <iostream>
 #include <fstream>
-#include <vector>
-#include <assert.h>
 #include <chrono>
-#include <ctime>
 #include <boost/algorithm/string.hpp>
 
-//file name information:
-std::string depth_level;
-std::string file_system_start;
-std::string file_system_end;
-double total_block_size_Kbytes = 0;
-//end of file name information
+#define UNDEFINED_STRING "-1"
+#define UNDEFINED_DOUBLE -1.0
+#define UNDEFINED_INT -1
+#define UNDEFINED_STATUS "UNDEFINED_STATUS"
 
-double M_presents;
-double epsilon_presents;
-std::string input_file_name;
-std::string benchmarks_file_name;
-double model_time_limit;
-bool time_limit_option = false;
-double M_Kbytes = 0;
-double epsilon_Kbytes = 0;
-double Kbytes_to_replicate = -1;
-int num_of_blocks = 0;
-double actual_M_presents = -1;
-double actual_M = -1; //in KB
+std::string depth_level = UNDEFINED_STRING;          //File system depth.
+std::string file_system_start = UNDEFINED_STRING;    //ID of the first file system.
+std::string file_system_end = UNDEFINED_STRING;      //ID of the last file system.
+int average_block_size = UNDEFINED_INT;              //Average block size in the system (corresponding to rabin fingerprint)
+double M_presents = UNDEFINED_DOUBLE;                //The % we want to migrate to an empty destination.
+double epsilon_presents = UNDEFINED_DOUBLE;          //The tolerance we can afford in the migration.
+std::string input_file_name = UNDEFINED_STRING;      //Name of the input file, contains all the information needed.
+std::string benchmarks_file_name = UNDEFINED_STRING; //File we save our benchmarks, every line will be a different migration plan summary.
+double model_time_limit = UNDEFINED_DOUBLE;          //Time limit for the solver.
+bool time_limit_option = false;                      //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
+
+double M_Kbytes = UNDEFINED_DOUBLE;            //KB we desire to migrate.
+double epsilon_Kbytes = UNDEFINED_DOUBLE;      //KB we can tolerate.
+double Kbytes_to_replicate = UNDEFINED_DOUBLE; //KB to replicated as a result from the migration plan.
+
+int num_of_blocks = UNDEFINED_INT; //Number of blocks in the input file
+double actual_M_presents = UNDEFINED_DOUBLE;
+double actual_M_Kbytes = UNDEFINED_DOUBLE; //in KB
 int num_of_files = 0;
 std::string seed = "-1";
 std::string number_of_threads = "-1";
 std::string solution_status = "ELSE";
 int filter_factor = -1;
-int average_block_size = -1;
+double total_block_size_Kbytes = 0; //initialized to 0
 
 int get_num_of_metadata_lines(std::string &input_file_name)
 {
@@ -60,6 +60,7 @@ void get_num_of_blocks_and_files(std::ifstream &f, int num_of_metadata_lines)
     std::string content;
     std::string number_as_string;
     std::string type_of_info;
+    bool set_num_files = false, set_num_blocks = false;
 
     for (int i = 0; i < num_of_metadata_lines; i++)
     {
@@ -68,11 +69,18 @@ void get_num_of_blocks_and_files(std::ifstream &f, int num_of_metadata_lines)
         if (type_of_info == type_of_info_file)
         {
             num_of_files = std::stoi(content.substr(2 + content.find(": ")));
+            set_num_files = true;
         }
         if (type_of_info == type_of_info_block)
         {
             num_of_blocks = std::stoi(content.substr(2 + content.find(": ")));
+            set_num_blocks = true;
         }
+    }
+    if (!set_num_blocks || !set_num_files)
+    {
+        std::cout << "cannot retrieve number of files or number of blocks from the input" << std::endl;
+        exit(1);
     }
 }
 
@@ -109,8 +117,8 @@ void save_solution(GRBVar *blocks_migrated, GRBVar *blocks_replicated, GRBVar *f
             total_blocks += block_size[i];
         }
     }
-    actual_M = (double)total_blocks;
-    actual_M_presents = actual_M / (double)total_block_size_Kbytes;
+    actual_M_Kbytes = (double)total_blocks;
+    actual_M_presents = actual_M_Kbytes / (double)total_block_size_Kbytes;
     actual_M_presents *= 100.0;
     solution.close();
 }
@@ -170,7 +178,7 @@ void save_statistics(double total_time, double solver_time)
         << M_presents << ","
         << M_Kbytes << ","
         << actual_M_presents << ","
-        << actual_M << ","
+        << actual_M_Kbytes << ","
         << epsilon_presents << ","
         << epsilon_Kbytes << ","
         << Kbytes_to_replicate << ","
