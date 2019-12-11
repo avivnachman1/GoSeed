@@ -11,31 +11,28 @@
 #define UNDEFINED_INT -1
 #define UNDEFINED_STATUS "UNDEFINED_STATUS"
 
-using namespace std;
-using namespace std::chrono;
-
-string depth_level;                          //File system depth.
-string file_system_start;                    //ID of the first file system.
-string file_system_end;                      //ID of the last file system.
-int container_size = 0;                      //Average size of a container.
-double M_presents;                           //The % we want to migrate to an empty destination.
-double epsilon_presents;                     //The tolerance we can afford in the migration.
-string input_file_name;                      //Name of the input file, contains all the information needed.
-string benchmarks_file_name;                 //File we save our benchmarks, every line will be a different migration plan summary.
-double model_time_limit;                     //Time limit for the solver.
-bool time_limit_option = false;              //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
-double M_containers = 0;                     //The number of containers we desire to migrate.
-double epsilon_containers = 0;               //The number of containers we can tolerate in the solution.
-double containers_to_replicate = -1;         //Number of containers needed to be replicated as a result from the migration plan found.
-int num_of_containers = 0;                   //Number of phsical containers in the system.
-double actual_M_presents = -1;               //The % of physical containers we decided to migrate.
-double actual_M = -1;                        //Number of containers we decided to migrate.
-int num_of_files = 0;                        //Number of files in our input.
-string seed = UNDEFINED_STRING;              //Seed for the solver.
-string number_of_threads = UNDEFINED_STRING; //Number of threads we restrict our solver to run with.
-string solution_status = UNDEFINED_STATUS;   //Solver status at the end of the optimization.
-int grouping_factor = 0;                     //Number of adjacent containers aggregated together into one "transfer unit".
-int num_of_containers_after_group;           //Number of "transfer units" as a results from the grouping factor.
+std::string depth_level;                          //File system depth.
+std::string file_system_start;                    //ID of the first file system.
+std::string file_system_end;                      //ID of the last file system.
+int container_size = 0;                           //Average size of a container.
+double M_presents;                                //The % we want to migrate to an empty destination.
+double epsilon_presents;                          //The tolerance we can afford in the migration.
+std::string input_file_name;                      //Name of the input file, contains all the information needed.
+std::string benchmarks_file_name;                 //File we save our benchmarks, every line will be a different migration plan summary.
+double model_time_limit;                          //Time limit for the solver.
+bool time_limit_option = false;                   //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
+double M_containers = 0;                          //The number of containers we desire to migrate.
+double epsilon_containers = 0;                    //The number of containers we can tolerate in the solution.
+double containers_to_replicate = -1;              //Number of containers needed to be replicated as a result from the migration plan found.
+int num_of_containers = 0;                        //Number of phsical containers in the system.
+double actual_M_presents = -1;                    //The % of physical containers we decided to migrate.
+double actual_M = -1;                             //Number of containers we decided to migrate.
+int num_of_files = 0;                             //Number of files in our input.
+std::string seed = UNDEFINED_STRING;              //Seed for the solver.
+std::string number_of_threads = UNDEFINED_STRING; //Number of threads we restrict our solver to run with.
+std::string solution_status = UNDEFINED_STATUS;   //Solver status at the end of the optimization.
+int grouping_factor = 0;                          //Number of adjacent containers aggregated together into one "transfer unit".
+int num_of_containers_after_group;                //Number of "transfer units" as a results from the grouping factor.
 
 /**
  * @brief counts the number of metadata lines in the input file.
@@ -44,14 +41,14 @@ int num_of_containers_after_group;           //Number of "transfer units" as a r
  * @param input_file_name the input file name.
  * @return int number of metadata lines in the input file
  */
-int get_num_of_metadata_lines(string &input_file_name)
+int get_num_of_metadata_lines(std::string &input_file_name)
 {
-    ifstream f(input_file_name.c_str(), std::ifstream::in);
+    std::ifstream f(input_file_name.c_str(), std::ifstream::in);
     int counter = 0;
-    string content;
+    std::string content;
     if (!f.is_open())
     {
-        std::cout << "error opening file." << endl;
+        std::cout << "error opening file." << std::endl;
         exit(1);
     }
     std::getline(f, content);
@@ -72,11 +69,11 @@ int get_num_of_metadata_lines(string &input_file_name)
  */
 void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines)
 {
-    const string type_of_info_file = "# Num files";
-    const string type_of_info_block = "# Num Blocks";
-    string content;
-    string number_as_string;
-    string type_of_info;
+    const std::string type_of_info_file = "# Num files";
+    const std::string type_of_info_block = "# Num Blocks";
+    std::string content;
+    std::string number_as_string;
+    std::string type_of_info;
 
     for (int i = 0; i < num_of_metadata_lines; i++)
     {
@@ -94,15 +91,15 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
 }
 
 /**
- * @brief Splits str according to delimiter, the result strings are stored in a vector.
+ * @brief Splits str according to delimiter, the result strings are stored in a std::vector.
  * 
- * @param str string to split.
+ * @param str std::string to split.
  * @param delimiter split according to delimiter.
- * @return vector<string> the splitted string in a vector.
+ * @return std::vector<std::string> the splitted std::string in a std::vector.
  */
-vector<string> splitString(string str, const std::string &delimiter)
+std::vector<std::string> splitString(std::string str, const std::string &delimiter)
 {
-    vector<string> result;
+    std::vector<std::string> result;
     boost::split(result, str, boost::is_any_of(delimiter));
     return result;
 }
@@ -114,12 +111,12 @@ vector<string> splitString(string str, const std::string &delimiter)
  * @param files Assigned ILP variables for the files that move/stay.
  * @param print_to Output file for the files to move.
  */
-void calculate_migration_and_save_solution(GRBVar *containers_migrated, GRBVar *files, string print_to)
+void calculate_migration_and_save_solution(GRBVar *containers_migrated, GRBVar *files, std::string print_to)
 {
-    ofstream solution(print_to, std::ios_base::app);
+    std::ofstream solution(print_to, std::ios_base::app);
     if (!solution)
     {
-        cout << "Cannot open output file" << print_to << endl;
+        std::cout << "Cannot open output file" << print_to << std::endl;
         exit(1);
     }
     for (int i = 0; i < num_of_files; i++)
@@ -151,12 +148,12 @@ void calculate_migration_and_save_solution(GRBVar *containers_migrated, GRBVar *
  */
 void save_statistics(double total_time, double solver_time)
 {
-    ofstream out(benchmarks_file_name, std::ios_base::app);
+    std::ofstream out(benchmarks_file_name, std::ios_base::app);
     if (!out)
     {
-        cout << "Cannot open output file\n";
+        std::cout << "Cannot open output file\n";
     }
-    string is_there_time_limit = (time_limit_option) ? "yes" : "no";
+    std::string is_there_time_limit = (time_limit_option) ? "yes" : "no";
     out << input_file_name << ","
         << "B,"
         << depth_level << ","
@@ -179,39 +176,39 @@ void save_statistics(double total_time, double solver_time)
         << is_there_time_limit << ","
         << solution_status << ","
         << total_time << ","
-        << solver_time << endl;
+        << solver_time << std::endl;
     out.close();
 }
 
 int main(int argc, char *argv[])
 {
-    const auto begin = high_resolution_clock::now(); //start the stopwatch for the total time.
-    if (argc != 14)                                  //very specific argument format for the program.
+    const auto begin = std::chrono::high_resolution_clock::now(); //start the stopwatch for the total time.
+    if (argc != 14)                                               //very specific argument format for the program.
     {
-        cout
+        std::cout
             << "arguments format is: {file name} {benchmarks output file name} {M} {epsilon} {where to write the optimization solution} {container grouping factor} {model time limit in seconds} {seed} {threads} {container size} {depth} {file_system_start} {file_system_end}"
-            << endl;
+            << std::endl;
         return 0;
     }
-    input_file_name = string(argv[1]);
-    benchmarks_file_name = string(argv[2]);
-    M_presents = std::stod(string(argv[3]));
-    epsilon_presents = std::stod(string(argv[4]));
-    string write_solution = string(argv[5]);
-    grouping_factor = std::stod(string(argv[6]));
-    model_time_limit = std::stod(string(argv[7]));
+    input_file_name = std::string(argv[1]);
+    benchmarks_file_name = std::string(argv[2]);
+    M_presents = std::stod(std::string(argv[3]));
+    epsilon_presents = std::stod(std::string(argv[4]));
+    std::string write_solution = std::string(argv[5]);
+    grouping_factor = std::stod(std::string(argv[6]));
+    model_time_limit = std::stod(std::string(argv[7]));
     time_limit_option = model_time_limit != 0;
-    seed = string(argv[8]);
-    number_of_threads = string(argv[9]);
-    container_size = std::stod(string(argv[10]));
-    depth_level = string(argv[11]);
-    file_system_start = string(argv[12]);
-    file_system_end = string(argv[13]);
+    seed = std::string(argv[8]);
+    number_of_threads = std::string(argv[9]);
+    container_size = std::stod(std::string(argv[10]));
+    depth_level = std::string(argv[11]);
+    file_system_start = std::string(argv[12]);
+    file_system_end = std::string(argv[13]);
     int num_of_metadata_lines = get_num_of_metadata_lines(input_file_name);
-    ifstream f(input_file_name.c_str(), std::ifstream::in);
+    std::ifstream f(input_file_name.c_str(), std::ifstream::in);
     if (!f.is_open())
     {
-        std::cout << "error opening file." << endl;
+        std::cout << "error opening file." << std::endl;
         exit(1);
     }
 
@@ -224,8 +221,8 @@ int main(int argc, char *argv[])
     GRBConstr *constrains = 0;
     GRBConstr *constrains_hint = 0;
     bool need_to_free_hint_constrains = false;
-    vector<GRBLinExpr> left_side;
-    vector<GRBLinExpr> left_side_hint; //files that does not have containers should stay at source.
+    std::vector<GRBLinExpr> left_side;
+    std::vector<GRBLinExpr> left_side_hint; //files that does not have containers should stay at source.
     try
     {
         env = new GRBEnv(); //This may throw if there is no valid licence.
@@ -250,8 +247,8 @@ int main(int argc, char *argv[])
         int file_sn;
         int container_sn;
         int number_of_containers_in_file_line;
-        string content;
-        std::vector<string> splitted_content;
+        std::string content;
+        std::vector<std::string> splitted_content;
         while (std::getline(f, content))
         {
             splitted_content = splitString(content, ",");
@@ -308,15 +305,15 @@ int main(int argc, char *argv[])
             }
         }
         f.close();
-        std::cout << "done reading the file" << endl;
+        std::cout << "done reading the file" << std::endl;
 
         //add the constrains to the model
-        vector<double> right_side;
-        vector<double> right_side_hint;
-        vector<string> names;
-        vector<string> names_hint;
-        vector<char> senses;
-        vector<char> senses_hint;
+        std::vector<double> right_side;
+        std::vector<double> right_side_hint;
+        std::vector<std::string> names;
+        std::vector<std::string> names_hint;
+        std::vector<char> senses;
+        std::vector<char> senses_hint;
         names.assign(left_side.size(), "");
         names_hint.assign(left_side_hint.size(), "");
         right_side.assign(left_side.size(), 0.0);
@@ -359,10 +356,10 @@ int main(int argc, char *argv[])
                         "5");                                        // sum of the migrated containers should be equal to M+- epsilon.
         model.setObjective(all_replicated_containers, GRB_MINIMIZE); //minimize the sum of replicated content.
 
-        std::cout << "start optimize now..." << endl;
-        auto s1 = high_resolution_clock::now();
+        std::cout << "start optimize now..." << std::endl;
+        auto s1 = std::chrono::high_resolution_clock::now();
         model.optimize();
-        double solver_time = duration<double>(high_resolution_clock::now() - s1).count();
+        double solver_time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - s1).count();
 
         int status = model.get(GRB_IntAttr_Status);
         if (status == GRB_OPTIMAL)
@@ -377,8 +374,8 @@ int main(int argc, char *argv[])
         {
             solution_status = "TIME_LIMIT";
         }
-        cout << "done optimization" << endl
-             << flush;
+        std::cout << "done optimization" << std::endl
+                  << std::flush;
 
         if (solution_status != "INFEASIBLE")
         {
@@ -394,7 +391,7 @@ int main(int argc, char *argv[])
                 solution_status = "TIME_LIMIT_AT_PRESOLVE";
             }
         }
-        double elapsed_secs = duration<double>(high_resolution_clock::now() - begin).count(); //total time the program ran.
+        double elapsed_secs = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - begin).count(); //total time the program ran.
         save_statistics(elapsed_secs, solver_time);
     }
     catch (...)
