@@ -52,7 +52,7 @@ int get_num_of_metadata_lines(string &input_file_name)
     if (!f.is_open())
     {
         std::cout << "error opening file." << endl;
-        //return 1;
+        exit(1);
     }
     std::getline(f, content);
     while (content[0] == '#')
@@ -64,6 +64,12 @@ int get_num_of_metadata_lines(string &input_file_name)
     return counter;
 }
 
+/**
+ * @brief Retrieves the number of files and blocks in the input.
+ * metadata lines are in format: "# <type_of_information>:<value>"
+ * @param f reference to the input stream
+ * @param num_of_metadata_lines the number of metadata lines
+ */
 void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines)
 {
     const string type_of_info_file = "# Num files";
@@ -75,69 +81,74 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
     for (int i = 0; i < num_of_metadata_lines; i++)
     {
         std::getline(f, content);
-        type_of_info = content.substr(0, content.find(": "));
+        type_of_info = content.substr(0, content.find(": ")); //
         if (type_of_info == type_of_info_file)
         {
-            num_of_files = std::stoi(content.substr(2 + content.find(": ")));
+            num_of_files = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
         }
         if (type_of_info == type_of_info_block)
         {
-            num_of_containers = std::stoi(content.substr(2 + content.find(": ")));
+            num_of_containers = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
         }
     }
 }
 
-/// string split
-vector<string> splitString(string str, const std::string &delims)
+/**
+ * @brief Splits str according to delimiter, the result strings are stored in a vector.
+ * 
+ * @param str string to split.
+ * @param delimiter split according to delimiter.
+ * @return vector<string> the splitted string in a vector.
+ */
+vector<string> splitString(string str, const std::string &delimiter)
 {
-    string toShred(str);
     vector<string> result;
-    boost::split(result, toShred, boost::is_any_of(delims));
+    boost::split(result, str, boost::is_any_of(delimiter));
     return result;
 }
 
-void save_solution(GRBVar *containers_migrated, GRBVar *containers_replicated, GRBVar *files, string input_file_name,
-                   string print_to)
+/**
+ * @brief Computes the actual migration, also save the serial number of the files chosen in the migration plan.
+ * print_to files will contains all the serial numbers of the files chosen to move in the migration plan (seperated by new line).
+ * @param containers_migrated Assigned ILP variables for the containers to migrate.
+ * @param files Assigned ILP variables for the files that move/stay.
+ * @param print_to Output file for the files to move.
+ */
+void calculate_migration_and_save_solution(GRBVar *containers_migrated, GRBVar *files, string print_to)
 {
     ofstream solution(print_to, std::ios_base::app);
     if (!solution)
     {
         cout << "Cannot open output file" << print_to << endl;
-        return;
+        exit(1);
     }
     for (int i = 0; i < num_of_files; i++)
     {
-        if (files[i].get(GRB_DoubleAttr_X) != 0.0)
+        if (files[i].get(GRB_DoubleAttr_X) != 0.0) //file is moved
         {
             solution << i << std::endl;
         }
     }
-    //solution << "-----" << std::endl;
     int total_containers = 0;
-    //solution << "containers to migrate:" << std::endl;
+    //counts the number of containers that the solver chose to move.
     for (int i = 0; i < num_of_containers_after_group; i++)
     {
-        if (containers_migrated[i].get(GRB_DoubleAttr_X) != 0.0)
+        if (containers_migrated[i].get(GRB_DoubleAttr_X) != 0.0) //container is moved
         {
-            //solution << i << std::endl;
             total_containers++;
         }
     }
     actual_M = total_containers;
-    actual_M_presents = actual_M / (double)num_of_containers_after_group;
-    actual_M_presents *= 100.0;
-    /*
-    solution << "-----" << std::endl;
-    solution << "Containers to replicate:" << std::endl;
-    for (int i = 0; i < num_of_containers_after_group; i++) {
-        if (containers_replicated[i].get(GRB_DoubleAttr_X) != 0.0) {
-            solution << i << std::endl;
-        }
-    }
-    //solution << "-----" << std::endl;*/
+    actual_M_presents = (actual_M / (double)num_of_containers_after_group) * 100.0;
     solution.close();
 }
 
+/**
+ * @brief Appends to the benchmark summary file the statistics of migration plan with the hyper paramaters passed.
+ * 
+ * @param total_time The total time took for the program to run.
+ * @param solver_time Only the optimization time.
+ */
 void save_statistics(double total_time, double solver_time)
 {
     ofstream out(benchmarks_file_name, std::ios_base::app);
@@ -146,11 +157,8 @@ void save_statistics(double total_time, double solver_time)
         cout << "Cannot open output file\n";
     }
     string is_there_time_limit = (time_limit_option) ? "yes" : "no";
-
     out << input_file_name << ","
-
-        << "B"
-        << ","
+        << "B,"
         << depth_level << ","
         << file_system_start << ","
         << file_system_end << ","
@@ -177,8 +185,8 @@ void save_statistics(double total_time, double solver_time)
 
 int main(int argc, char *argv[])
 {
-    const auto begin = high_resolution_clock::now();
-    if (argc != 14)
+    const auto begin = high_resolution_clock::now(); //start the stopwatch for the total time.
+    if (argc != 14)                                  //very specific argument format for the program.
     {
         cout
             << "arguments format is: {file name} {benchmarks output file name} {M} {epsilon} {where to write the optimization solution} {container grouping factor} {model time limit in seconds} {seed} {threads} {container size} {depth} {file_system_start} {file_system_end}"
@@ -204,6 +212,7 @@ int main(int argc, char *argv[])
     if (!f.is_open())
     {
         std::cout << "error opening file." << endl;
+        exit(1);
     }
 
     get_num_of_containers_and_files(f, num_of_metadata_lines); //set global vars num_of_containers and num_of_files
@@ -216,12 +225,12 @@ int main(int argc, char *argv[])
     GRBConstr *constrains_hint = 0;
     bool need_to_free_hint_constrains = false;
     vector<GRBLinExpr> left_side;
-    vector<GRBLinExpr> left_side_hint;
+    vector<GRBLinExpr> left_side_hint; //files that does not have containers should stay at source.
     try
     {
-        env = new GRBEnv(); //this throws exception
+        env = new GRBEnv(); //This may throw if there is no valid licence.
         GRBModel model = GRBModel(*env);
-        model.set(GRB_StringAttr_ModelName, "migration_problem");
+        model.set(GRB_StringAttr_ModelName, "GoSeed");
         if (time_limit_option)
         {
             model.set(GRB_DoubleParam_TimeLimit, model_time_limit); //set time limit
@@ -278,9 +287,7 @@ int main(int argc, char *argv[])
                     //skip block_id its useless
                     number_of_containers_in_file_line = std::stoi(splitted_content[3]); //number of files in line reusing number_of_blocks_in_file_line for convenient
                     no_orphans -= number_of_containers_in_file_line;
-                    for (int i = 0; i <
-                                    number_of_containers_in_file_line;
-                         i++) //read block_sn and block_size simultaneously and add constrains to the model.
+                    for (int i = 0; i < number_of_containers_in_file_line; i++) //read block_sn and block_size simultaneously and add constrains to the model.
                     {
                         file_sn = std::stoi(splitted_content[4 + i]);
                         no_orphans += files[file_sn];
@@ -303,13 +310,7 @@ int main(int argc, char *argv[])
         f.close();
         std::cout << "done reading the file" << endl;
 
-        /*for (int i = 0;
-             i < num_of_containers_after_group; i++)// a container cannot be migrated and replicated at the same time
-        {
-            left_side.push_back(containers_migrated[i] + containers_replicated[i] - 1);
-        }*/
-
-        //add to the model the constrains
+        //add the constrains to the model
         vector<double> right_side;
         vector<double> right_side_hint;
         vector<string> names;
@@ -324,7 +325,7 @@ int main(int argc, char *argv[])
         senses_hint.assign(left_side_hint.size(), GRB_EQUAL);
 
         constrains = model.addConstrs(&left_side[0], &senses[0], &right_side[0], &names[0], (int)left_side.size());
-        if ((int)left_side_hint.size() != 0)
+        if ((int)left_side_hint.size() != 0) //found at least one empty file.
         {
             constrains_hint = model.addConstrs(&left_side_hint[0], &senses_hint[0], &right_side_hint[0], &names_hint[0],
                                                (int)left_side_hint.size());
@@ -385,7 +386,7 @@ int main(int argc, char *argv[])
             //print the results.
             try
             {
-                save_solution(containers_migrated, containers_replicated, files, input_file_name, write_solution);
+                calculate_migration_and_save_solution(containers_migrated, files, write_solution);
             }
             catch (...)
             {
@@ -393,9 +394,7 @@ int main(int argc, char *argv[])
                 solution_status = "TIME_LIMIT_AT_PRESOLVE";
             }
         }
-
-        double elapsed_secs = duration<double>(high_resolution_clock::now() - begin).count();
-
+        double elapsed_secs = duration<double>(high_resolution_clock::now() - begin).count(); //total time the program ran.
         save_statistics(elapsed_secs, solver_time);
     }
     catch (...)
