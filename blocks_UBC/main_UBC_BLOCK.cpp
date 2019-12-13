@@ -185,6 +185,11 @@ void save_statistics(double total_time, double solver_time)
     out.close();
 }
 
+/**
+ * @brief Saves to the disk the block_size array 
+ * 
+ * @param block_size contains the information of each block size in the systems
+ */
 void save_block_size_array(double *block_size)
 {
     std::ofstream out("block_size.txt");
@@ -200,6 +205,11 @@ void save_block_size_array(double *block_size)
     out.close();
 }
 
+/**
+ * @brief Reads from the disk the block_size array 
+ * 
+ * @param block_size contains the information of each block size in the systems
+ */
 void load_block_size_array_and_del_temp_file(double *block_size)
 {
     std::ifstream in("block_size.txt");
