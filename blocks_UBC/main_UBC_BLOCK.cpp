@@ -18,21 +18,26 @@ std::string input_file_name = UNDEFINED_STRING;      //Name of the input file, c
 std::string benchmarks_file_name = UNDEFINED_STRING; //File we save our benchmarks, every line will be a different migration plan summary.
 double model_time_limit = UNDEFINED_DOUBLE;          //Time limit for the solver.
 bool time_limit_option = false;                      //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
+double M_Kbytes = UNDEFINED_DOUBLE;                  //KB we desire to migrate.
+double epsilon_Kbytes = UNDEFINED_DOUBLE;            //KB we can tolerate.
+double Kbytes_to_replicate = UNDEFINED_DOUBLE;       //KB to replicated as a result from the migration plan.
+long int num_of_blocks = UNDEFINED_INT;              //Number of blocks in the input file
+double actual_M_presents = UNDEFINED_DOUBLE;         //The % of physical containers we decided to migrate.
+double actual_M_Kbytes = UNDEFINED_DOUBLE;           //Number of containers we decided to migrate.
+int num_of_files = UNDEFINED_INT;                    //Number of files in our input.
+std::string seed = UNDEFINED_STRING;                 //Seed for the solver.
+std::string number_of_threads = UNDEFINED_STRING;    //Number of threads we restrict our solver to run with.
+std::string solution_status = UNDEFINED_STATUS;      //Solver status at the end of the optimization.
+int filter_factor = UNDEFINED_INT;                   // if filter heuristic was applied, k determines the number of following zeros.
+double total_block_size_Kbytes = 0;                  //the total physical size of the system in KB units.
 
-double M_Kbytes = UNDEFINED_DOUBLE;            //KB we desire to migrate.
-double epsilon_Kbytes = UNDEFINED_DOUBLE;      //KB we can tolerate.
-double Kbytes_to_replicate = UNDEFINED_DOUBLE; //KB to replicated as a result from the migration plan.
-
-int num_of_blocks = UNDEFINED_INT; //Number of blocks in the input file
-double actual_M_presents = UNDEFINED_DOUBLE;
-double actual_M_Kbytes = UNDEFINED_DOUBLE; //in KB
-int num_of_files = 0;
-std::string seed = "-1";
-std::string number_of_threads = "-1";
-std::string solution_status = "ELSE";
-int filter_factor = -1;
-double total_block_size_Kbytes = 0; //initialized to 0
-
+/**
+ * @brief counts the number of metadata lines in the input file.
+ * metadata line is defined to have # symbol at the start of the line.
+ * 
+ * @param input_file_name the input file name.
+ * @return int number of metadata lines in the input file
+ */
 int get_num_of_metadata_lines(std::string &input_file_name)
 {
     std::ifstream f(input_file_name.c_str(), std::ifstream::in);
@@ -41,7 +46,7 @@ int get_num_of_metadata_lines(std::string &input_file_name)
     if (!f.is_open())
     {
         std::cout << "error opening file." << std::endl;
-        //return 1;
+        exit(1);
     }
     std::getline(f, content);
     while (content[0] == '#')
@@ -53,6 +58,12 @@ int get_num_of_metadata_lines(std::string &input_file_name)
     return counter;
 }
 
+/**
+ * @brief Retrieves the number of files and containers in the input.
+ * metadata lines are in format: "# <type_of_information>:<value>"
+ * @param f reference to the input stream
+ * @param num_of_metadata_lines the number of metadata lines
+ */
 void get_num_of_blocks_and_files(std::ifstream &f, int num_of_metadata_lines)
 {
     const std::string type_of_info_file = "# Num files";
@@ -68,12 +79,12 @@ void get_num_of_blocks_and_files(std::ifstream &f, int num_of_metadata_lines)
         type_of_info = content.substr(0, content.find(": "));
         if (type_of_info == type_of_info_file)
         {
-            num_of_files = std::stoi(content.substr(2 + content.find(": ")));
+            num_of_files = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
             set_num_files = true;
         }
         if (type_of_info == type_of_info_block)
         {
-            num_of_blocks = std::stoi(content.substr(2 + content.find(": ")));
+            num_of_blocks = std::stol(content.substr(2 + content.find(": "))); //sets global variable
             set_num_blocks = true;
         }
     }
@@ -84,43 +95,94 @@ void get_num_of_blocks_and_files(std::ifstream &f, int num_of_metadata_lines)
     }
 }
 
-/// string split
-std::vector<std::string> splitString(std::string str, const std::string &delims)
+/**
+ * @brief Splits str according to delimiter, the result strings are stored in a std::vector.
+ * 
+ * @param str std::string to split.
+ * @param delimiter split according to delimiter.
+ * @return std::vector<std::string> the splitted std::string in a std::vector.
+ */
+std::vector<std::string> split_string(std::string str, const std::string &delimiter)
 {
-    std::string toShred(str);
     std::vector<std::string> result;
-    boost::split(result, toShred, boost::is_any_of(delims));
+    boost::split(result, str, boost::is_any_of(delimiter));
     return result;
 }
 
-void save_solution(GRBVar *blocks_migrated, GRBVar *blocks_replicated, GRBVar *files, std::string input_file_name,
-                   std::string print_to, double *block_size)
+/**
+ * @brief Computes the actual migration, also save the serial number of the files chosen in the migration plan.
+ * print_to files will contain all the serial numbers of the files chosen to move in the migration plan (seperated by new line).
+ * @param containers_migrated Assigned ILP variables for the containers to migrate.
+ * @param files Assigned ILP variables for the files that move/stay.
+ * @param print_to Output file for the files to move.
+ */
+void calculate_migration_and_save_solution(GRBVar *blocks_migrated, GRBVar *files, std::string print_to, double *block_size)
 {
     std::ofstream solution(print_to, std::ios_base::app);
     if (!solution)
     {
         std::cout << "Cannot open output file" << print_to << std::endl;
-        return;
+        exit(1);
     }
     for (int i = 0; i < num_of_files; i++)
     {
-        if (files[i].get(GRB_DoubleAttr_X) != 0.0)
+        if (files[i].get(GRB_DoubleAttr_X) != 0.0) //file is moved
         {
             solution << i << std::endl;
         }
     }
-    int total_blocks = 0;
-    for (int i = 0; i < num_of_blocks; i++)
+    double total_blocks = 0.0;
+    //Sum KB of the migrated blocks.
+    for (long int i = 0; i < num_of_blocks; i++)
     {
         if (blocks_migrated[i].get(GRB_DoubleAttr_X) != 0.0)
         {
             total_blocks += block_size[i];
         }
     }
-    actual_M_Kbytes = (double)total_blocks;
-    actual_M_presents = actual_M_Kbytes / (double)total_block_size_Kbytes;
-    actual_M_presents *= 100.0;
+    actual_M_Kbytes = total_blocks;
+    actual_M_presents = (actual_M_Kbytes / total_block_size_Kbytes) * 100.0;
     solution.close();
+}
+
+/**
+ * @brief Appends to the benchmark summary file the statistics of migration plan with the hyper paramaters passed.
+ * 
+ * @param total_time The total time took for the program to run.
+ * @param solver_time Only the optimization time.
+ */
+void save_statistics(double total_time, double solver_time)
+{
+    std::ofstream out(benchmarks_file_name, std::ios_base::app);
+    if (!out)
+    {
+        std::cout << "Cannot open output file\n";
+    }
+    std::string is_there_time_limit = (time_limit_option) ? "yes" : "no";
+    out << input_file_name << ","
+        << "B,"
+        << depth_level << ","
+        << file_system_start << ","
+        << file_system_end << ","
+        << filter_factor << ","
+        << average_block_size << ","
+        << num_of_blocks << ","
+        << num_of_files << ","
+        << M_presents << ","
+        << M_Kbytes << ","
+        << actual_M_presents << ","
+        << actual_M_Kbytes << ","
+        << epsilon_presents << ","
+        << epsilon_Kbytes << ","
+        << Kbytes_to_replicate << ","
+        << ((double)Kbytes_to_replicate) * 100.0 / ((double)total_block_size_Kbytes) << ","
+        << seed << ","
+        << number_of_threads << ","
+        << is_there_time_limit << ","
+        << solution_status << ","
+        << total_time << ","
+        << solver_time << std::endl;
+    out.close();
 }
 
 void save_block_size_array(double *block_size)
@@ -154,42 +216,6 @@ void load_block_size_array_and_del_temp_file(double *block_size)
 
     if (remove("block_size.txt") != 0) // delete temp file
         std::cout << "Error deleting file" << std::endl;
-}
-
-void save_statistics(double total_time, double solver_time)
-{
-    std::ofstream out(benchmarks_file_name, std::ios_base::app);
-    if (!out)
-    {
-        std::cout << "Cannot open output file\n";
-    }
-    std::string is_there_time_limit = (time_limit_option) ? "yes" : "no";
-
-    out << input_file_name << ","
-        << "B"
-        << ","
-        << depth_level << ","
-        << file_system_start << ","
-        << file_system_end << ","
-        << filter_factor << ","
-        << average_block_size << ","
-        << num_of_blocks << ","
-        << num_of_files << ","
-        << M_presents << ","
-        << M_Kbytes << ","
-        << actual_M_presents << ","
-        << actual_M_Kbytes << ","
-        << epsilon_presents << ","
-        << epsilon_Kbytes << ","
-        << Kbytes_to_replicate << ","
-        << ((double)Kbytes_to_replicate) * 100.0 / ((double)total_block_size_Kbytes) << ","
-        << seed << ","
-        << number_of_threads << ","
-        << is_there_time_limit << ","
-        << solution_status << ","
-        << total_time << ","
-        << solver_time << std::endl;
-    out.close();
 }
 
 int main(int argc, char *argv[])
@@ -267,7 +293,7 @@ int main(int argc, char *argv[])
         std::vector<std::string> splitted_content;
         while (std::getline(f, content))
         {
-            splitted_content = splitString(content, ",");
+            splitted_content = split_string(content, ",");
             if (splitted_content[0] == "F")
             {
                 file_sn = std::stoi(splitted_content[1]);
@@ -400,7 +426,7 @@ int main(int argc, char *argv[])
             //print the results.
             try
             {
-                save_solution(blocks_migrated, blocks_replicated, files, input_file_name, write_solution, block_size);
+                calculate_migration_and_save_solution(blocks_migrated, files, write_solution, block_size);
             }
             catch (...)
             {

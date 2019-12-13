@@ -8,30 +8,28 @@
 #define UNDEFINED_INT -1
 #define UNDEFINED_STATUS "UNDEFINED_STATUS"
 
-std::string depth_level = UNDEFINED_STRING;          //File system depth.
-std::string file_system_start = UNDEFINED_STRING;    //ID of the first file system.
-std::string file_system_end = UNDEFINED_STRING;      //ID of the last file system.
-int container_size = UNDEFINED_INT;                  //Average size of a container.
-double M_presents = UNDEFINED_DOUBLE;                //The % we want to migrate to an empty destination.
-double epsilon_presents = UNDEFINED_DOUBLE;          //The tolerance we can afford in the migration.
-std::string input_file_name = UNDEFINED_STRING;      //Name of the input file, contains all the information needed.
-std::string benchmarks_file_name = UNDEFINED_STRING; //File we save our benchmarks, every line will be a different migration plan summary.
-double model_time_limit = UNDEFINED_DOUBLE;          //Time limit for the solver.
-bool time_limit_option = false;                      //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
-
-double M_containers = UNDEFINED_DOUBLE;            //The number of containers we desire to migrate.
-double epsilon_containers = UNDEFINED_DOUBLE;      //The number of containers we can tolerate in the solution.
-double containers_to_replicate = UNDEFINED_DOUBLE; //Number of containers needed to be replicated as a result from the migration plan found.
-
-int num_of_containers = UNDEFINED_INT;             //Number of phsical containers in the inpu.
-double actual_M_presents = UNDEFINED_DOUBLE;       //The % of physical containers we decided to migrate.
-double actual_M = UNDEFINED_DOUBLE;                //Number of containers we decided to migrate.
-int num_of_files = UNDEFINED_INT;                  //Number of files in our input.
-std::string seed = UNDEFINED_STRING;               //Seed for the solver.
-std::string number_of_threads = UNDEFINED_STRING;  //Number of threads we restrict our solver to run with.
-std::string solution_status = UNDEFINED_STATUS;    //Solver status at the end of the optimization.
-int grouping_factor = UNDEFINED_INT;               //Number of adjacent containers aggregated together into one "transfer unit".
-int num_of_containers_after_group = UNDEFINED_INT; //Number of "transfer units" as a results from the grouping factor.
+std::string depth_level = UNDEFINED_STRING;             //File system depth.
+std::string file_system_start = UNDEFINED_STRING;       //ID of the first file system.
+std::string file_system_end = UNDEFINED_STRING;         //ID of the last file system.
+int container_size = UNDEFINED_INT;                     //Average size of a container.
+double M_presents = UNDEFINED_DOUBLE;                   //The % we want to migrate to an empty destination.
+double epsilon_presents = UNDEFINED_DOUBLE;             //The tolerance we can afford in the migration.
+std::string input_file_name = UNDEFINED_STRING;         //Name of the input file, contains all the information needed.
+std::string benchmarks_file_name = UNDEFINED_STRING;    //File we save our benchmarks, every line will be a different migration plan summary.
+double model_time_limit = UNDEFINED_DOUBLE;             //Time limit for the solver.
+bool time_limit_option = false;                         //Do we restrict the solver in time limit? (True if model_time_limit is greater than 0).
+double M_containers = UNDEFINED_DOUBLE;                 //The number of containers we desire to migrate.
+double epsilon_containers = UNDEFINED_DOUBLE;           //The number of containers we can tolerate in the solution.
+double containers_to_replicate = UNDEFINED_DOUBLE;      //Number of containers needed to be replicated as a result from the migration plan found.
+long int num_of_containers = UNDEFINED_INT;             //Number of phsical containers in the inpu.
+double actual_M_presents = UNDEFINED_DOUBLE;            //The % of physical containers we decided to migrate.
+double actual_M = UNDEFINED_DOUBLE;                     //Number of containers we decided to migrate.
+int num_of_files = UNDEFINED_INT;                       //Number of files in our input.
+std::string seed = UNDEFINED_STRING;                    //Seed for the solver.
+std::string number_of_threads = UNDEFINED_STRING;       //Number of threads we restrict our solver to run with.
+std::string solution_status = UNDEFINED_STATUS;         //Solver status at the end of the optimization.
+int grouping_factor = UNDEFINED_INT;                    //Number of adjacent containers aggregated together into one "transfer unit".
+long int num_of_containers_after_group = UNDEFINED_INT; //Number of "transfer units" as a results from the grouping factor.
 
 /**
  * @brief counts the number of metadata lines in the input file.
@@ -78,7 +76,7 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
     for (int i = 0; i < num_of_metadata_lines; i++)
     {
         std::getline(f, content);
-        type_of_info = content.substr(0, content.find(": ")); //
+        type_of_info = content.substr(0, content.find(": "));
         if (type_of_info == type_of_info_file)
         {
             num_of_files = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
@@ -86,7 +84,7 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
         }
         if (type_of_info == type_of_info_block)
         {
-            num_of_containers = std::stoi(content.substr(2 + content.find(": "))); //sets global variable
+            num_of_containers = std::stol(content.substr(2 + content.find(": "))); //sets global variable
             set_num_containers = true;
         }
     }
@@ -104,7 +102,7 @@ void get_num_of_containers_and_files(std::ifstream &f, int num_of_metadata_lines
  * @param delimiter split according to delimiter.
  * @return std::vector<std::string> the splitted std::string in a std::vector.
  */
-std::vector<std::string> splitString(std::string str, const std::string &delimiter)
+std::vector<std::string> split_string(std::string str, const std::string &delimiter)
 {
     std::vector<std::string> result;
     boost::split(result, str, boost::is_any_of(delimiter));
@@ -113,7 +111,7 @@ std::vector<std::string> splitString(std::string str, const std::string &delimit
 
 /**
  * @brief Computes the actual migration, also save the serial number of the files chosen in the migration plan.
- * print_to files will contains all the serial numbers of the files chosen to move in the migration plan (seperated by new line).
+ * print_to files will contain all the serial numbers of the files chosen to move in the migration plan (seperated by new line).
  * @param containers_migrated Assigned ILP variables for the containers to migrate.
  * @param files Assigned ILP variables for the files that move/stay.
  * @param print_to Output file for the files to move.
@@ -133,16 +131,16 @@ void calculate_migration_and_save_solution(GRBVar *containers_migrated, GRBVar *
             solution << i << std::endl;
         }
     }
-    int total_containers = 0;
+    long int total_containers = 0;
     //counts the number of containers that the solver chose to move.
-    for (int i = 0; i < num_of_containers_after_group; i++)
+    for (long int i = 0; i < num_of_containers_after_group; i++)
     {
         if (containers_migrated[i].get(GRB_DoubleAttr_X) != 0.0) //container is moved
         {
             total_containers++;
         }
     }
-    actual_M = total_containers;
+    actual_M = (double)total_containers;
     actual_M_presents = (actual_M / (double)num_of_containers_after_group) * 100.0;
     solution.close();
 }
@@ -243,8 +241,7 @@ int main(int argc, char *argv[])
         model.set("Threads", number_of_threads.c_str());
 
         //set the model's variables.
-        num_of_containers_after_group =
-            num_of_containers / grouping_factor + (num_of_containers % grouping_factor != 0);
+        num_of_containers_after_group = num_of_containers / grouping_factor + (num_of_containers % grouping_factor != 0);
         containers_migrated = model.addVars(num_of_containers_after_group, GRB_BINARY);
         containers_replicated = model.addVars(num_of_containers_after_group, GRB_BINARY);
         files = model.addVars(num_of_files, GRB_BINARY);
@@ -258,7 +255,7 @@ int main(int argc, char *argv[])
         std::vector<std::string> splitted_content;
         while (std::getline(f, content))
         {
-            splitted_content = splitString(content, ",");
+            splitted_content = split_string(content, ",");
             if (splitted_content[0] == "F")
             {
                 file_sn = std::stoi(splitted_content[1]);
@@ -299,7 +296,7 @@ int main(int argc, char *argv[])
                     if (gf_idx != grouping_factor - 1)
                     {
                         std::getline(f, content);
-                        splitted_content = splitString(content, ",");
+                        splitted_content = split_string(content, ",");
                         if (splitted_content[0] != "B")
                             break;
                     }
