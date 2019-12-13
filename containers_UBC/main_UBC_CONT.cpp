@@ -267,8 +267,7 @@ int main(int argc, char *argv[])
                     container_sn = std::stoi(splitted_content[5 + i]);
                     //container size is redundent, all containers are same size aprx.
                     left_side.push_back(containers_migrated[container_sn / grouping_factor] - files[file_sn]);
-                    left_side.push_back(files[file_sn] - containers_migrated[container_sn / grouping_factor] -
-                                        containers_replicated[container_sn / grouping_factor]);
+                    left_side.push_back(files[file_sn] - containers_migrated[container_sn / grouping_factor] - containers_replicated[container_sn / grouping_factor]);
                 }
                 if (number_of_containers_in_file_line == 0)
                 {
@@ -328,8 +327,7 @@ int main(int argc, char *argv[])
         constrains = model.addConstrs(&left_side[0], &senses[0], &right_side[0], &names[0], (int)left_side.size());
         if ((int)left_side_hint.size() != 0) //found at least one empty file.
         {
-            constrains_hint = model.addConstrs(&left_side_hint[0], &senses_hint[0], &right_side_hint[0], &names_hint[0],
-                                               (int)left_side_hint.size());
+            constrains_hint = model.addConstrs(&left_side_hint[0], &senses_hint[0], &right_side_hint[0], &names_hint[0], (int)left_side_hint.size());
             need_to_free_hint_constrains = true;
         }
 
@@ -343,7 +341,6 @@ int main(int argc, char *argv[])
         senses_hint.clear();
 
         //done adding to model the constrains
-
         GRBLinExpr all_migrated_containers = 0.0;
         GRBLinExpr all_replicated_containers = 0.0;
         for (int i = 0; i < num_of_containers_after_group; i++)
@@ -354,11 +351,9 @@ int main(int argc, char *argv[])
         M_containers = num_of_containers_after_group * M_presents / 100;             //assign the number of bytes to migrate
         epsilon_containers = num_of_containers_after_group * epsilon_presents / 100; //assign the epsilon in bytes.
 
-        model.addConstr(all_migrated_containers <= M_containers + epsilon_containers,
-                        "5"); // sum of the migrated containers should be equal to M+- epsilon.
-        model.addConstr(all_migrated_containers >= M_containers - epsilon_containers,
-                        "5");                                        // sum of the migrated containers should be equal to M+- epsilon.
-        model.setObjective(all_replicated_containers, GRB_MINIMIZE); //minimize the sum of replicated content.
+        model.addConstr(all_migrated_containers <= M_containers + epsilon_containers, "5"); // sum of the migrated containers should be equal to M+- epsilon.
+        model.addConstr(all_migrated_containers >= M_containers - epsilon_containers, "5"); // sum of the migrated containers should be equal to M+- epsilon.
+        model.setObjective(all_replicated_containers, GRB_MINIMIZE);                        //minimize the sum of replicated content.
 
         std::cout << "start optimize now..." << std::endl;
         auto s1 = std::chrono::high_resolution_clock::now();
@@ -380,7 +375,6 @@ int main(int argc, char *argv[])
         }
         std::cout << "done optimization" << std::endl
                   << std::flush;
-
         if (solution_status != "INFEASIBLE")
         {
             containers_to_replicate = model.get(GRB_DoubleAttr_ObjVal);
@@ -400,8 +394,7 @@ int main(int argc, char *argv[])
     }
     catch (...)
     {
-        std::cout << "Exception during optimization"
-                  << std::endl;
+        std::cout << "Exception during optimization" << std::endl;
     }
     delete[] constrains;
     if (need_to_free_hint_constrains)

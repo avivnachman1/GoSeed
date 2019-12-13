@@ -220,15 +220,14 @@ void load_block_size_array_and_del_temp_file(double *block_size)
 
 int main(int argc, char *argv[])
 {
-    const auto begin = std::chrono::high_resolution_clock::now();
-    if (argc != 14)
+    const auto begin = std::chrono::high_resolution_clock::now(); //start the stopwatch for the total time.
+    if (argc != 14)                                               //very specific argument format for the program.
     {
         std::cout
             << "arguments format is: {file name} {benchmarks output file name} {M} {epsilon} {where to write the optimization solution} {k filter factor} {model time limit in seconds} {seed} {threads} {avg block size} {depth} {file_system_start} {file_system_end}"
             << std::endl;
         return 0;
     }
-
     input_file_name = std::string(argv[1]);
     benchmarks_file_name = std::string(argv[2]);
     M_presents = std::stod(std::string(argv[3]));
@@ -239,17 +238,16 @@ int main(int argc, char *argv[])
     time_limit_option = model_time_limit != 0;
     seed = std::string(argv[8]);
     number_of_threads = std::string(argv[9]);
-
     average_block_size = std::stod(std::string(argv[10]));
     depth_level = std::string(argv[11]);
     file_system_start = std::string(argv[12]);
     file_system_end = std::string(argv[13]);
-
     int num_of_metadata_lines = get_num_of_metadata_lines(input_file_name);
     std::ifstream f(input_file_name.c_str(), std::ifstream::in);
     if (!f.is_open())
     {
         std::cout << "error opening file." << std::endl;
+        exit(1);
     }
 
     get_num_of_blocks_and_files(f, num_of_metadata_lines); //set global vars num_of_blocks and num_of_files
@@ -262,12 +260,12 @@ int main(int argc, char *argv[])
     GRBConstr *constrains_hint = 0;
     bool need_to_free_hint_constrains = false;
     std::vector<GRBLinExpr> left_side;
-    std::vector<GRBLinExpr> left_side_hint;
+    std::vector<GRBLinExpr> left_side_hint; //files that does not have blocks should stay at source.
     try
     {
-        env = new GRBEnv(); //this throws exception
+        env = new GRBEnv(); //This may throw if there is no valid licence.
         GRBModel model = GRBModel(*env);
-        model.set(GRB_StringAttr_ModelName, "migration_problem");
+        model.set(GRB_StringAttr_ModelName, "GoSeed");
         if (time_limit_option)
         {
             model.set(GRB_DoubleParam_TimeLimit, model_time_limit); //set time limit
@@ -323,9 +321,7 @@ int main(int argc, char *argv[])
                 //skip block_id its useless
                 number_of_blocks_in_file_line = std::stoi(splitted_content[3]); //number of files in line reusing number_of_blocks_in_file_line for convenient
                 no_orphans = no_orphans + blocks_replicated[block_sn] - number_of_blocks_in_file_line;
-                for (int i = 0; i <
-                                number_of_blocks_in_file_line;
-                     i++) //read block_sn and block_size simultaneously and add constrains to the model.
+                for (int i = 0; i < number_of_blocks_in_file_line; i++) //read block_sn and block_size simultaneously and add constrains to the model.
                 {
                     file_sn = std::stoi(splitted_content[4 + i]);
                     no_orphans += files[file_sn];
@@ -339,13 +335,8 @@ int main(int argc, char *argv[])
         }
         f.close();
         std::cout << "done reading the file" << std::endl;
-        /*
-        for (int i = 0; i < num_of_blocks; i++)// a block cannot be migrated and replicated at the same time
-        {
-            left_side.push_back(blocks_migrated[i] + blocks_replicated[i] - 1);
-        }*/
 
-        //add to the model the constrains
+        //add the constrains to the model
         std::vector<double> right_side;
         std::vector<double> right_side_hint;
         std::vector<std::string> names;
@@ -360,10 +351,9 @@ int main(int argc, char *argv[])
         senses_hint.assign(left_side_hint.size(), GRB_EQUAL);
 
         constrains = model.addConstrs(&left_side[0], &senses[0], &right_side[0], &names[0], (int)left_side.size());
-        if ((int)left_side_hint.size() != 0)
+        if ((int)left_side_hint.size() != 0) //found at least one empty file.
         {
-            constrains_hint = model.addConstrs(&left_side_hint[0], &senses_hint[0], &right_side_hint[0], &names_hint[0],
-                                               (int)left_side_hint.size());
+            constrains_hint = model.addConstrs(&left_side_hint[0], &senses_hint[0], &right_side_hint[0], &names_hint[0], (int)left_side_hint.size());
             need_to_free_hint_constrains = true;
         }
 
@@ -388,11 +378,9 @@ int main(int argc, char *argv[])
         M_Kbytes = total_block_size_Kbytes * M_presents / 100;             //assign the number of bytes to migrate
         epsilon_Kbytes = total_block_size_Kbytes * epsilon_presents / 100; //assign the epsilon in bytes.
 
-        model.addConstr(all_migrated_blocks <= M_Kbytes + epsilon_Kbytes,
-                        "5"); // sum of the migrated blocks should be equal to M+- epsilon.
-        model.addConstr(all_migrated_blocks >= M_Kbytes - epsilon_Kbytes,
-                        "5");                                    // sum of the migrated blocks should be equal to M+- epsilon.
-        model.setObjective(all_replicated_blocks, GRB_MINIMIZE); //minimize the sum of replicated content.
+        model.addConstr(all_migrated_blocks <= M_Kbytes + epsilon_Kbytes, "5"); // sum of the migrated blocks should be equal to M+- epsilon.
+        model.addConstr(all_migrated_blocks >= M_Kbytes - epsilon_Kbytes, "5"); // sum of the migrated blocks should be equal to M+- epsilon.
+        model.setObjective(all_replicated_blocks, GRB_MINIMIZE);                //minimize the sum of replicated content.
 
         save_block_size_array(block_size);
         delete[] block_size;
@@ -419,7 +407,6 @@ int main(int argc, char *argv[])
         }
         std::cout << "done optimization" << std::endl
                   << std::flush;
-
         if (solution_status != "INFEASIBLE")
         {
             Kbytes_to_replicate = model.get(GRB_DoubleAttr_ObjVal);
@@ -434,17 +421,13 @@ int main(int argc, char *argv[])
                 solution_status = "TIME_LIMIT_AT_PRESOLVE";
             }
         }
-
         delete[] block_size;
-
         double elapsed_secs = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - begin).count();
-
         save_statistics(elapsed_secs, solver_time);
     }
     catch (...)
     {
-        std::cout << "Exception during optimization"
-                  << std::endl;
+        std::cout << "Exception during optimization" << std::endl;
     }
     delete[] constrains;
     if (need_to_free_hint_constrains)
