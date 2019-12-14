@@ -2,15 +2,24 @@
 ILP based migration plan generator for deduplication storage.
 
 notes:
-This project is attached to the paper "GoSeed: Generating an Optimal Seeding Plan for Deduplicated Storage" presented at FAST20.
-link to the paper: TBD
-The idea behind the project assumes that the target volume for the migration is initially empty.
+This project part of my MSC work at the technion and is attached to the paper "GoSeed: Generating an Optimal Seeding Plan for Deduplicated Storage" presented at FAST20 (link to the paper: TBD).
 
-dependencies:
-boost
-gurobi (version i was using is 8.1.1)
+In order to compile and run the project you must have g++, boost and gurobi (I was using version 8.1.1).
 
-There are four files in this repositry:
-2 compile scripts
+*Two source code files:
+
+GoSeedCont.cpp- Contains the code 
+
+GoSeedBlocks.cpp- Contains the code if we want to
+
+
+*Two compile scripts, one for each
+
 2 source codes
 
+
+
+ Markup : * Bullet list
+              * Nested bullet
+                  * Sub-nested bullet etc
+          * Bullet list item 2
