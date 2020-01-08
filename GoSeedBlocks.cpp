@@ -1,3 +1,8 @@
+// This repository is attached to the paper: "GoSeed: Generating an Optimal Seeding Plan for Deduplicated Storage".
+// Authors: Aviv Nachman, Gala Yadgar and Sarai Sheinvald.
+// Conference: FAST20, 18th USENIX Conference on File and Storage Technologies.
+// Link: https://www.usenix.org/conference/fast20/presentation/nachman
+
 #include "gurobi_c++.h"
 #include <fstream>
 #include <chrono>
