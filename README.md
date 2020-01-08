@@ -1,9 +1,9 @@
 # GoSeed
 ILP based migration plan generator for deduplication storage.
 
-This repository is attached to the paper: "GoSeed: Generating an Optimal Seeding Plan for Deduplicated Storage"
-Authors: Aviv Nachman, Gala Yadgar and Sarai Sheinvald 
-Conference: FAST20, 18th USENIX Conference on File and Storage Technologies.
+This repository is attached to the paper: "GoSeed: Generating an Optimal Seeding Plan for Deduplicated Storage".<br/>
+Authors: Aviv Nachman, Gala Yadgar and Sarai Sheinvald.<br/>
+Conference: FAST20, 18th USENIX Conference on File and Storage Technologies.<br/>
 Link: https://www.usenix.org/conference/fast20/presentation/nachman
 
 In order to compile and run the project you must have g++, boost and gurobi (I was using version 8.1.1).
