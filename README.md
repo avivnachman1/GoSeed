@@ -10,7 +10,8 @@ In order to compile and run the project you must have g++, boost and gurobi (I w
 
 The Repositry Contains:
 1. A readme file.
-2. Two source code files:
+2. Input format description file
+3. Two source code files:
    - GoSeedBlocks.cpp: The source code when blocks are the basic migration unit.
    - GoSeedCont.cpp: The source code when containers are the basic migration unit, there are few optimizations that can be applied when migrating full containers.
-3. Two bash scripts for compilation, one for each source.
+4. Two bash scripts for compilation, one for each source.
