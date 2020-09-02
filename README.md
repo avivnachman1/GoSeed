@@ -7,6 +7,7 @@ Conference: FAST20, 18th USENIX Conference on File and Storage Technologies.<br/
 Link: https://www.usenix.org/conference/fast20/presentation/nachman
 
 In order to compile and run the project you must have g++, boost and gurobi (we were using version 8.1.1).
+Running the compiled binary without any arguments will output the expected argument format.
 
 The Repositry Contains:
 1. A readme file.
