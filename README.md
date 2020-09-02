@@ -26,4 +26,4 @@ Input format description:
    - Example: "B,0,9029760f86,4,1,22,33"
    - Interpretation: block with serial number 0, fingerprint of 9029760f86, 4 files related with serial numbers of 4,1,22,33.
 4. The input ends with directory information lines each one starting with the character 'D/R' (D for a directory, R for roots), these lines helps up to understand the hierarchical layout of the files and directories.
-   - For our purposes in this project we ignored them.
+   - For the purpose of this project these lines are ignored.
